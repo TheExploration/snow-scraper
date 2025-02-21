@@ -6,11 +6,6 @@ import cors from 'cors';
 
 
 
-
-// Use CORS middleware
-// For local dev: origin: "http://localhost:3000"
-// Or use "*" to allow all domains (less secure).
-app.use(cors({ origin: "*" }));
 /** -------------- Helper Functions -------------- **/
 
 function getResortElevation($) {
@@ -114,6 +109,13 @@ const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => {
     res.send('Hello from Azure!');
 });
+
+
+
+// Use CORS middleware
+// For local dev: origin: "http://localhost:3000"
+// Or use "*" to allow all domains (less secure).
+app.use(cors({ origin: "*" }));
 
 /**
  * GET /scrape?url=<snow-forecast-page>
