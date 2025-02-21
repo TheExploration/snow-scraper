@@ -102,6 +102,10 @@ function extractBlockData(row, $, type) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.get('/', (req, res) => {
+    res.send('Hello from Azure!');
+});
+
 /**
  * GET /scrape?url=<snow-forecast-page>
  *
