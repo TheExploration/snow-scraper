@@ -1,7 +1,16 @@
 import express from 'express';
 import fetch from 'node-fetch'; // If on Node 18+, can use global fetch
 import * as cheerio from 'cheerio';
+import cors from 'cors';
 
+
+
+
+
+// Use CORS middleware
+// For local dev: origin: "http://localhost:3000"
+// Or use "*" to allow all domains (less secure).
+app.use(cors({ origin: "*" }));
 /** -------------- Helper Functions -------------- **/
 
 function getResortElevation($) {
