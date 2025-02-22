@@ -1,10 +1,16 @@
 import express from 'express';
-import fetch from 'node-fetch'; // If on Node 18+, can use global fetch
+import fetch from 'node-fetch'; // If on Node 18+, you can use global fetch
 import * as cheerio from 'cheerio';
 import cors from 'cors';
 
+const app = express();
+const PORT = process.env.PORT || 3000;
 
+// Use CORS middleware (adjust origin as needed)
+app.use(cors({ origin: "*" }));
 
+// In-memory cache: mapping URL -> scraped result
+const cache = {};
 
 /** -------------- Helper Functions -------------- **/
 
@@ -12,7 +18,6 @@ function getResortElevation($) {
   try {
     const elevationList = $('.elevation-control__list').first();
     if (!elevationList.length) return null;
-    
     const bottomElevation = elevationList.find('.elevation-control__link--bot .height').text();
     return bottomElevation ? parseInt(bottomElevation, 10) : null;
   } catch (err) {
@@ -49,7 +54,6 @@ function extractBlockData(row, $, type) {
         case 'temperature':
           containerDiv = $cell.find('.temp-value');
           value = containerDiv.attr('data-value');
-          // Example offset
           if (value) value = (parseFloat(value) + 1).toString();
           break;
         case 'wind':
@@ -77,7 +81,6 @@ function extractBlockData(row, $, type) {
 
       if (!containerDiv || !containerDiv.length) return;
 
-      // Parse numeric except for 'phrases'
       const parsedValue = (type === 'phrases')
         ? value
         : (value ? parseFloat(value) : '-');
@@ -86,7 +89,6 @@ function extractBlockData(row, $, type) {
 
       const classList = containerDiv.attr('class') || '';
       const hasBorder = classList.includes('forecast-table__container--border');
-      // If there's a border or it's the last cell, close off the block
       if (hasBorder || i === cells.length - 1) {
         if (currentBlock.length > 0) {
           blocks.push(currentBlock);
@@ -97,31 +99,64 @@ function extractBlockData(row, $, type) {
       console.warn(`Error extracting ${type} data:`, err);
     }
   });
-
   return blocks;
 }
 
-/** -------------- Express Server -------------- **/
+/**
+ * Scrapes the given URL and returns the scraped data as an object.
+ */
+async function scrapeUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+  const html = await response.text();
+  const $ = cheerio.load(html);
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+  const snowRow = $('.forecast-table__row[data-row="snow"]');
+  const snowBlocks = extractBlockData(snowRow, $, 'snow');
+
+  const tempRow = $('.forecast-table__row[data-row="temperature-max"]');
+  const temperatureBlocks = extractBlockData(tempRow, $, 'temperature');
+
+  const windRow = $('.forecast-table__row[data-row="wind"]');
+  const windBlocks = extractBlockData(windRow, $, 'wind');
+
+  const flRow = $('.forecast-table__row[data-row="freezing-level"]');
+  const freezinglevelBlocks = extractBlockData(flRow, $, 'freezing-level');
+
+  const rainRow = $('.forecast-table__row[data-row="rain"]');
+  const rainBlocks = extractBlockData(rainRow, $, 'rain');
+
+  const phrasesRow = $('.forecast-table__row[data-row="phrases"]');
+  const phrasesBlocks = extractBlockData(phrasesRow, $, 'phrases');
+
+  const bottomElevation = getResortElevation($);
+
+  return {
+    success: true,
+    resort: url,
+    bottomElevation,
+    snowBlocks,
+    temperatureBlocks,
+    windBlocks,
+    freezinglevelBlocks,
+    rainBlocks,
+    phrasesBlocks,
+    maxSnowBlockLength: findMaxBlockLength(snowBlocks),
+  };
+}
+
+/** -------------- Routes -------------- **/
 
 app.get('/', (req, res) => {
-    res.send('Hello from Azure!');
+  res.send('Hello!');
 });
-
-
-
-// Use CORS middleware
-// For local dev: origin: "http://localhost:3000"
-// Or use "*" to allow all domains (less secure).
-app.use(cors({ origin: "*" }));
 
 /**
  * GET /scrape?url=<snow-forecast-page>
  *
- * Example:
- *   /scrape?url=https://www.snow-forecast.com/resorts/Cypress-Mountain/6day/bot
+ * If cached data exists, it is immediately returned and refreshed in the background.
  */
 app.get('/scrape', async (req, res) => {
   try {
@@ -130,58 +165,32 @@ app.get('/scrape', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing ?url=' });
     }
 
-    // 1) Fetch the HTML directly (no proxy needed!)
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
+    // If cache exists, return cached data immediately.
+    if (cache[url]) {
+      const cachedData = cache[url];
+      res.json({ success: true, cached: true, data: cachedData });
+      
+      // Asynchronously refresh the cache.
+      scrapeUrl(url)
+        .then(newData => {
+          cache[url] = newData;
+        })
+        .catch(err => {
+          console.error("Error refreshing cache for url:", url, err);
+        });
+    } else {
+      // No cache exists, scrape and cache the result, then return it.
+      const result = await scrapeUrl(url);
+      cache[url] = result;
+      res.json({ success: true, cached: false, data: result });
     }
-    const html = await response.text();
-
-    // 2) Load into Cheerio
-    const $ = cheerio.load(html);
-
-    // 3) Extract data from relevant rows
-    const snowRow = $('.forecast-table__row[data-row="snow"]');
-    const snowBlocks = extractBlockData(snowRow, $, 'snow');
-
-    const tempRow = $('.forecast-table__row[data-row="temperature-max"]');
-    const temperatureBlocks = extractBlockData(tempRow, $, 'temperature');
-
-    const windRow = $('.forecast-table__row[data-row="wind"]');
-    const windBlocks = extractBlockData(windRow, $, 'wind');
-
-    const flRow = $('.forecast-table__row[data-row="freezing-level"]');
-    const freezinglevelBlocks = extractBlockData(flRow, $, 'freezing-level');
-
-    const rainRow = $('.forecast-table__row[data-row="rain"]');
-    const rainBlocks = extractBlockData(rainRow, $, 'rain');
-
-    const phrasesRow = $('.forecast-table__row[data-row="phrases"]');
-    const phrasesBlocks = extractBlockData(phrasesRow, $, 'phrases');
-
-    // Elevation
-    const bottomElevation = getResortElevation($);
-
-    // 4) Respond with JSON
-    res.json({
-      success: true,
-      resort: url,
-      bottomElevation,
-      snowBlocks,
-      temperatureBlocks,
-      windBlocks,
-      freezinglevelBlocks,
-      rainBlocks,
-      phrasesBlocks,
-      maxSnowBlockLength: findMaxBlockLength(snowBlocks),
-    });
   } catch (error) {
     console.error('Scraping error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Start listening
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
