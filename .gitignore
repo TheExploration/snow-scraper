@@ -15,4 +15,9 @@ yarn-error.log*
 
 # IDE
 .vscode/
-.idea/ 
+.idea/
+
+# Docker
+.docker/
+docker-compose.override.yml
+*.env 
