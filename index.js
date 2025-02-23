@@ -242,7 +242,7 @@ async function scrapeMid() {
   try {
     // Create an array of promises that will scrape data for each resort.
     const resortPromises = skiResorts.map(async (resort) => {
-      const url = `https://www.snow-forecast.com/resorts/${resort}/6day/bot`;
+      const url = `https://www.snow-forecast.com/resorts/${resort}/6day/mid`;
       try {
         const data = await scrapeUrl(url);
         return { resort, data };
