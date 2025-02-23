@@ -6,7 +6,7 @@ import cors from 'cors';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const allowedDomains = ['https://skibc.tech', 'https://skibc.netlify.app'];
+const allowedDomains = ['*', 'https://skibc.tech', 'https://skibc.netlify.app'];
 
 app.use(cors({
   origin: function (origin, callback) {
