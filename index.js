@@ -6,22 +6,33 @@ import cors from 'cors';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Use CORS middleware (adjust origin as needed)
-app.use(cors({ origin: "*" }));
+const allowedDomains = ['bolt.new', 'https://skibc.tech', 'https://skibc.netlify.app'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+
+    if (allowedDomains.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 
 // In-memory cache: mapping URL -> scraped result
 //const cache = {};
 
 const skiResorts = [
-  "Apex", "Mt-Baldy-Ski-Area", "Big-White", "CrystalResort", "Cypress-Mountain",
+  "Apex", "Mt-Baldy-Ski-Area", "Big-White", "Cypress-Mountain",
   "Fairmont-Hot-Springs", "Fernie", "Grouse-Mountain", "Harper-Mountain", "Ski-Smithers",
   "Kicking-Horse", "Kimberley", "Manning-Park-Resort", "MountCain", "Mount-Timothy-Ski-Area",
-  "Mount-Washington", "Mount-Seymour", "Murray-Ridge", "Panorama", "PowderKing", "Purden",
-  "Red-Mountain", "Revelstoke", "Salmo", "HemlockResort", "ShamesMountain", "Silver-Star",
-  "Summit-Lake-Ski-and-Snowboard-Area", "Sun-Peaks", "Tabor-Mountain", "Troll-Resort",
+  "Mount-Washington", "Mount-Seymour", "Murray-Ridge", "Panorama", "PowderKing",
+  "Red-Mountain", "Revelstoke", "HemlockResort", "ShamesMountain", "Silver-Star",
+  "Summit-Lake-Ski-and-Snowboard-Area", "Sun-Peaks", "Troll-Resort",
   "Whistler-Blackcomb", "Whitewater", "Lake-Louise", "Sunshine", "Banff-Norquay",
-  "Marmot-Basin", "Nakiska", "Castle-Mountain-Resort", "Fortress-Mountain",
-  "Pass-Powderkeg", "Mount-Baker", "Crystal-Mountain"
+  "Marmot-Basin", "Nakiska", "Castle-Mountain-Resort", "Pass-Powderkeg", "Mount-Baker", "Crystal-Mountain", "Stevens-Pass"
 ];
 
 // This object will hold the aggregated results from the scraping job.
