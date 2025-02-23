@@ -10,7 +10,24 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: "*" }));
 
 // In-memory cache: mapping URL -> scraped result
-const cache = {};
+//const cache = {};
+
+const skiResorts = [
+  "Apex", "Mt-Baldy-Ski-Area", "Big-White", "CrystalResort", "Cypress-Mountain",
+  "Fairmont-Hot-Springs", "Fernie", "Grouse-Mountain", "Harper-Mountain", "Ski-Smithers",
+  "Kicking-Horse", "Kimberley", "Manning-Park-Resort", "MountCain", "Mount-Timothy-Ski-Area",
+  "Mount-Washington", "Mount-Seymour", "Murray-Ridge", "Panorama", "PowderKing", "Purden",
+  "Red-Mountain", "Revelstoke", "Salmo", "HemlockResort", "ShamesMountain", "Silver-Star",
+  "Summit-Lake-Ski-and-Snowboard-Area", "Sun-Peaks", "Tabor-Mountain", "Troll-Resort",
+  "Whistler-Blackcomb", "Whitewater", "Lake-Louise", "Sunshine", "Banff-Norquay",
+  "Marmot-Basin", "Nakiska", "Castle-Mountain-Resort", "Fortress-Mountain",
+  "Pass-Powderkeg", "Mount-Baker", "Crystal-Mountain"
+];
+
+// This object will hold the aggregated results from the scraping job.
+let botData = {};
+let midData = {};
+let topData = {};
 
 /** -------------- Helper Functions -------------- **/
 
@@ -157,7 +174,7 @@ app.get('/', (req, res) => {
  * GET /scrape?url=<snow-forecast-page>
  *
  * If cached data exists, it is immediately returned and refreshed in the background.
- */
+ * Deprecated
 app.get('/scrape', async (req, res) => {
   try {
     const { url } = req.query;
@@ -189,8 +206,137 @@ app.get('/scrape', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+*/
+
+async function scrapeBot() {
+  try {
+    // Create an array of promises that will scrape data for each resort.
+    const resortPromises = skiResorts.map(async (resort) => {
+      const url = `https://www.snow-forecast.com/resorts/${resort}/6day/bot`;
+      try {
+        const data = await scrapeUrl(url);
+        return { resort, data };
+      } catch (error) {
+        console.error(`Error scraping ${resort}:`, error);
+        return { resort, error: error.message };
+      }
+    });
+
+    // Wait for all the promises to resolve.
+    const results = await Promise.all(resortPromises);
+
+    // Update the botData object.
+    botData = {
+      timestamp: new Date(),
+      resorts: results
+    };
+
+    console.log('Bot Data:', botData);
+    // You can now process/store botData as needed.
+  } catch (error) {
+    console.error('Error in scraping all resorts:', error);
+  }
+}
+
+async function scrapeMid() {
+  try {
+    // Create an array of promises that will scrape data for each resort.
+    const resortPromises = skiResorts.map(async (resort) => {
+      const url = `https://www.snow-forecast.com/resorts/${resort}/6day/bot`;
+      try {
+        const data = await scrapeUrl(url);
+        return { resort, data };
+      } catch (error) {
+        console.error(`Error scraping ${resort}:`, error);
+        return { resort, error: error.message };
+      }
+    });
+
+    // Wait for all the promises to resolve.
+    const results = await Promise.all(resortPromises);
+
+    // Update the botData object.
+    midData = {
+      timestamp: new Date(),
+      resorts: results
+    };
+
+    console.log('Mid Data:', midData);
+    // You can now process/store botData as needed.
+  } catch (error) {
+    console.error('Error in scraping all resorts:', error);
+  }
+}
+
+async function scrapeTop() {
+  try {
+    // Create an array of promises that will scrape data for each resort.
+    const resortPromises = skiResorts.map(async (resort) => {
+      const url = `https://www.snow-forecast.com/resorts/${resort}/6day/top`;
+      try {
+        const data = await scrapeUrl(url);
+        return { resort, data };
+      } catch (error) {
+        console.error(`Error scraping ${resort}:`, error);
+        return { resort, error: error.message };
+      }
+    });
+
+    // Wait for all the promises to resolve.
+    const results = await Promise.all(resortPromises);
+
+    // Update the topData object.
+    topData = {
+      timestamp: new Date(),
+      resorts: results
+    };
+
+    console.log('Top Data:', topData);
+    // You can now process/store botData as needed.
+  } catch (error) {
+    console.error('Error in scraping all resorts:', error);
+  }
+}
+
+/**
+ * Scrapes data for all ski resorts concurrently, aggregates it into one object,
+ * and updates the global `aggregatedData` with a timestamp.
+ */
+async function scrapeAllResorts() {
+  try {
+    scrapeBot();
+    scrapeMid();
+    scrapeTop();
+  } catch (error) {
+    console.error('Error in scraping all resorts:', error);
+  }
+}
+
+// Run the scraping function immediately on startup.
+scrapeAllResorts();
+
+// Schedule the scraping function to run every 30 minutes (30 * 60 * 1000 milliseconds).
+setInterval(scrapeAllResorts, 30 * 60 * 1000);
+
+app.get('/bot', (req, res) => {
+  res.json(botData);
+});
+
+app.get('/mid', (req, res) => {
+  res.json(midData);
+});
+
+app.get('/top', (req, res) => {
+  res.json(topData);
+});
+
+app.get('/all', (req, res) => {
+  res.json({ botData, midData, topData });
+});
+
 
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
