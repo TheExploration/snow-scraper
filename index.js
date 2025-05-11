@@ -4,7 +4,7 @@ import * as cheerio from 'cheerio';
 import cors from 'cors';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 6927;
 
 const allowedDomains = ['https://skibc.tech', 'https://skibc.netlify.app'];
 
